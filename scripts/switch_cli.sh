@@ -3,7 +3,7 @@
 # switch_cli.sh — エージェントのCLIセッションを安全に切り替える
 #
 # Usage:
-#   bash scripts/switch_cli.sh <agent_id> [--type <cli_type>] [--model <model_name>]
+#   bash scripts/switch_cli.sh <agent_id> [--type <cli_type>] [--model <model_name>] [--effort <effort>]
 #
 # Examples:
 #   # settings.yaml の現在値で再起動（CLI種別/モデル変更なし）
@@ -14,6 +14,9 @@
 #
 #   # 同一CLI内でモデルだけ変更（Sonnet → Opus）
 #   bash scripts/switch_cli.sh ashigaru3 --model claude-opus-4-6
+#
+#   # Codexの推論努力度指定
+#   bash scripts/switch_cli.sh ashigaru3 --effort high
 #
 #   # 全足軽を一括切替
 #   for i in $(seq 1 7); do bash scripts/switch_cli.sh ashigaru$i --type claude --model claude-sonnet-4-6; done
@@ -46,13 +49,14 @@ log() {
 
 # ─── Usage ───
 usage() {
-    echo "Usage: $0 <agent_id> [--type <cli_type>] [--model <model_name>]"
+    echo "Usage: $0 <agent_id> [--type <cli_type>] [--model <model_name>] [--effort <effort>]"
     echo ""
     echo "  agent_id   karo, ashigaru1-7, gunshi"
     echo "  --type     claude | codex | copilot | kimi"
     echo "  --model    claude-sonnet-4-6 | claude-opus-4-6 | gpt-5.3-codex | etc."
+    echo "  --effort   auto | low | medium | high"
     echo ""
-    echo "If --type/--model omitted, uses current settings.yaml values."
+    echo "If --type/--model/--effort omitted, uses current settings.yaml values."
     exit 1
 }
 
@@ -86,12 +90,13 @@ update_settings_yaml() {
     local agent_id="$1"
     local new_type="${2:-}"
     local new_model="${3:-}"
+    local new_effort="${4:-}"
 
-    if [[ -z "$new_type" && -z "$new_model" ]]; then
+    if [[ -z "$new_type" && -z "$new_model" && -z "$new_effort" ]]; then
         return 0
     fi
 
-    log "Updating settings.yaml: ${agent_id} → type=${new_type:-<unchanged>}, model=${new_model:-<unchanged>}"
+    log "Updating settings.yaml: ${agent_id} → type=${new_type:-<unchanged>}, model=${new_model:-<unchanged>}, effort=${new_effort:-<unchanged>}"
 
     "${PROJECT_ROOT}/.venv/bin/python3" << PYEOF
 import yaml, sys, os, datetime
@@ -100,6 +105,7 @@ settings_path = "${SETTINGS_FILE}"
 agent_id = "${agent_id}"
 new_type = "${new_type}" or None
 new_model = "${new_model}" or None
+new_effort = "${new_effort}" or None
 
 with open(settings_path, 'r', encoding='utf-8') as f:
     content = f.read()
@@ -117,10 +123,12 @@ if not isinstance(agent_cfg, dict):
 timestamp = datetime.datetime.now().strftime('%Y-%m-%d')
 comment = f"# {timestamp}: switch_cli.sh による切替"
 
-if new_type:
-    agent_cfg['type'] = new_type
-if new_model:
-    agent_cfg['model'] = new_model
+    if new_type:
+        agent_cfg['type'] = new_type
+    if new_model:
+        agent_cfg['model'] = new_model
+    if new_effort:
+        agent_cfg['effort'] = new_effort
 
 data['cli']['agents'][agent_id] = agent_cfg
 
@@ -151,6 +159,8 @@ while i < len(lines):
             new_lines.append(f'{inner_indent}type: {new_type}')
         if new_model:
             new_lines.append(f'{inner_indent}model: {new_model}  {comment}')
+        if new_effort:
+            new_lines.append(f'{inner_indent}effort: {new_effort}')
         # Skip old sub-fields
         i += 1
         while i < len(lines):
@@ -296,6 +306,7 @@ shift
 
 NEW_TYPE=""
 NEW_MODEL=""
+NEW_EFFORT=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -305,6 +316,10 @@ while [ $# -gt 0 ]; do
             ;;
         --model)
             NEW_MODEL="$2"
+            shift 2
+            ;;
+        --effort)
+            NEW_EFFORT="$2"
             shift 2
             ;;
         --help|-h)
@@ -323,6 +338,11 @@ if [[ -n "$NEW_TYPE" ]] && ! _cli_adapter_is_valid_cli "$NEW_TYPE"; then
     exit 1
 fi
 
+if [[ -n "$NEW_EFFORT" ]] && [[ ! "$NEW_EFFORT" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    log "ERROR: Invalid effort value: ${NEW_EFFORT}"
+    exit 1
+fi
+
 # Step 0: pane解決
 PANE_TARGET=$(resolve_pane "$AGENT_ID")
 if [ -z "$PANE_TARGET" ]; then
@@ -331,16 +351,17 @@ fi
 log "=== Starting CLI switch for ${AGENT_ID} (pane: ${PANE_TARGET}) ==="
 
 # Step 1: settings.yaml 更新（--type/--model 指定時のみ）
-if [[ -n "$NEW_TYPE" || -n "$NEW_MODEL" ]]; then
-    update_settings_yaml "$AGENT_ID" "$NEW_TYPE" "$NEW_MODEL"
+if [[ -n "$NEW_TYPE" || -n "$NEW_MODEL" || -n "$NEW_EFFORT" ]]; then
+    update_settings_yaml "$AGENT_ID" "$NEW_TYPE" "$NEW_MODEL" "$NEW_EFFORT"
 fi
 
 # Step 2: 切替後のCLI情報を取得（settings.yaml反映後）
 TARGET_CLI_TYPE=$(get_cli_type "$AGENT_ID")
 TARGET_MODEL=$(get_agent_model "$AGENT_ID")
 TARGET_CMD=$(build_cli_command "$AGENT_ID")
+TARGET_EFFORT=$(get_agent_effort "$AGENT_ID")
 
-log "Target: cli=${TARGET_CLI_TYPE}, model=${TARGET_MODEL}, cmd=${TARGET_CMD}"
+log "Target: cli=${TARGET_CLI_TYPE}, model=${TARGET_MODEL}, effort=${TARGET_EFFORT}, cmd=${TARGET_CMD}"
 
 # Step 3: 現在のCLIを /exit で終了
 CURRENT_CLI=$(get_current_pane_cli "$PANE_TARGET")

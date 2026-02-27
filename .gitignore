@@ -174,3 +174,12 @@
 !.github/
 !.github/workflows/
 !.github/workflows/*.yml
+!ui/
+!ui/**
+!scripts/webui-next.sh
+ui/node_modules/
+ui/.next/
+ui/.turbo/
+ui/dist/
+ui/out/
+ui/tsconfig.tsbuildinfo

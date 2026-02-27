@@ -639,7 +639,7 @@ echo ""
 if [ "$SETUP_ONLY" = false ]; then
     # CLI の存在チェック（Multi-CLI対応）
     if [ "$CLI_ADAPTER_LOADED" = true ]; then
-        _default_cli=$(get_cli_type "")
+        _default_cli=$(get_cli_type "shogun")
         if ! validate_cli_availability "$_default_cli"; then
             exit 1
         fi
