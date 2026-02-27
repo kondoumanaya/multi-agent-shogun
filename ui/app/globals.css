@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-main: #f3efe2;
+  --bg-secondary: #fff9ef;
+  --ink-strong: #1f2227;
+  --ink-soft: #4d534f;
+  --line: #c6bfa8;
+  --accent: #104754;
+  --accent-soft: #0f6f7a;
+  --danger: #991b1b;
+  --warning: #9a3412;
+  --surface: rgba(255, 252, 244, 0.88);
+  --sidebar-width: 280px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  color: var(--ink-strong);
+  background:
+    radial-gradient(circle at 2% 0%, rgba(16, 71, 84, 0.18), transparent 42%),
+    radial-gradient(circle at 95% 100%, rgba(154, 52, 18, 0.14), transparent 38%),
+    linear-gradient(135deg, var(--bg-main), var(--bg-secondary));
+  font-family: var(--font-ui), sans-serif;
+}
+
+code,
+pre {
+  font-family: var(--font-mono), monospace;
+}
+
+a {
+  color: inherit;
+}
+
+.shell-block {
+  background: #1f2329;
+  color: #ecf2f8;
+  border: 1px solid #2d3440;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: auto;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 10px 20px rgba(16, 28, 24, 0.08);
+}
+
+.badge {
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+}
+
+@media (max-width: 768px) {
+  .card {
+    border-radius: 14px;
+  }
+}

@@ -8,6 +8,7 @@
 #   get_instruction_file(agent_id [,cli_type]) → 指示書パス
 #   validate_cli_availability(cli_type)     → 0=OK, 1=NG
 #   get_agent_model(agent_id)               → "opus" | "sonnet" | "haiku" | "k2.5"
+#   get_agent_effort(agent_id)              → "auto" | "low" | "medium" | "high" | その他文字列
 #   get_startup_prompt(agent_id)            → 初期プロンプト文字列 or ""
 
 # プロジェクトルートを基準にsettings.yamlのパスを解決
@@ -129,6 +130,8 @@ build_cli_command() {
     cli_type=$(get_cli_type "$agent_id")
     local model
     model=$(get_agent_model "$agent_id")
+    local effort
+    effort=$(get_agent_effort "$agent_id")
     local thinking
     thinking=$(_cli_adapter_read_yaml "cli.agents.${agent_id}.thinking" "")
 
@@ -153,6 +156,9 @@ build_cli_command() {
             local cmd="codex"
             if [[ -n "$model" ]]; then
                 cmd="$cmd --model $model"
+            fi
+            if [[ -n "$effort" && "$effort" != "auto" ]]; then
+                cmd="$cmd --config model_reasoning_effort=$effort"
             fi
             cmd="$cmd --search --dangerously-bypass-approvals-and-sandbox --no-alt-screen"
             echo "$cmd"
@@ -285,6 +291,19 @@ get_agent_model() {
             esac
             ;;
     esac
+}
+
+# get_agent_effort(agent_id)
+# エージェントのreasoning effortを返す（未設定ならauto）
+get_agent_effort() {
+    local agent_id="$1"
+    local effort
+    effort=$(_cli_adapter_read_yaml "cli.agents.${agent_id}.effort" "auto")
+    if [[ -n "$effort" ]]; then
+        echo "$effort"
+    else
+        echo "auto"
+    fi
 }
 
 # get_model_display_name(agent_id)
